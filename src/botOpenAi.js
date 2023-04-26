@@ -1,6 +1,10 @@
 import { Configuration, OpenAIApi } from 'openai'
-import config from 'config'
+
 import { createReadStream } from 'fs'
+import dotenv from 'dotenv'
+dotenv.config()
+
+const API_KEY = process.env.API_KEY
 
 class OpenAi {
    roles = {
@@ -36,10 +40,8 @@ class OpenAi {
             'whisper-1'
          )
          return response.data.text
-      } catch (err) {
-         console.log('transcription', err.message)
-      }
+      } catch (err) {}
    }
 }
 
-export const openai = new OpenAi(config.get('OPEN_KEY'))
+export const openaiMy = new OpenAi(API_KEY)

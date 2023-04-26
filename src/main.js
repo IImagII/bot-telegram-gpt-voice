@@ -1,11 +1,16 @@
 import { Telegraf } from 'telegraf'
-import config from 'config'
+
 import { message } from 'telegraf/filters'
 import { ogg } from './ogg.js'
-import { openai } from './openaiBot.js'
+import { openaiMy } from './botOpenAi.js'
 import { code } from 'telegraf/format'
+import dotenv from 'dotenv'
+dotenv.config()
 
-const bot = new Telegraf(config.get('TELEGRAM_TOKEN'))
+const TELEGRAM_TOKEN = process.env.TEL_KEY
+
+const bot = new Telegraf(TELEGRAM_TOKEN)
+const history = [] //для отго чтобы поддерживать беседу
 
 //обработкатекстовых сообщений
 bot.on(message('voice'), async ctx => {
@@ -19,17 +24,33 @@ bot.on(message('voice'), async ctx => {
 
       const mp3Path = await ogg.toMp3(oggPath, useId) //тут мы перекодируем наш файл
 
-      const text = await openai.transcription(mp3Path) //передаем для распознания наш созданній mp3 которій mp3 создаем своим голосом
+      const text = await openaiMy.transcription(mp3Path) //передаем для распознания наш созданній mp3 которій mp3 создаем своим голосом
 
       await ctx.reply(code(`Вас запрос: ${text}`)) // сообщение которое показыавем бот
 
-      const messages = [{ role: openai.roles.USER, content: text }]
-
-      const response = await openai.chat(messages) //тут сы переадем сам текст нашему боту GPT
+      // const messages = [{ role: openaiMy.roles.USER, content: text }]
+      history.push({ role: openaiMy.roles.USER, content: text })
+      const response = await openaiMy.chat(history) //тут сы переадем сам текст нашему боту GPT
 
       await ctx.reply(response.content) // тут то что нам выводит бот
    } catch (e) {
       console.log(e.message)
+   }
+})
+
+bot.on('message', async ctx => {
+   try {
+      if (ctx.message.text) {
+         await ctx.reply(code('Сообщение принял ждите....'))
+         const text = ctx.message.text
+         await ctx.reply(code(`Вас запрос: ${text}`))
+         history.push({ role: openaiMy.roles.USER, content: text })
+
+         const response = await openaiMy.chat(history)
+         await ctx.reply(response.content) // тут то что нам выводит бот
+      }
+   } catch (err) {
+      console.log(err.message)
    }
 })
 
@@ -39,5 +60,5 @@ bot.command('start', async ctx => {
 })
 bot.launch()
 
-process.once('STOP', () => bot.stop('STOP'))
+process.once('SIGINT', () => bot.stop('SIGINT'))
 process.once('SIGTERM', () => bot.stop('SIGTERM'))
